@@ -2,6 +2,8 @@ import os
 import argparse
 from google import genai
 from google.genai import types
+from config import SYSTEM_PROMPT
+from functions.get_files_info import schema_get_files_info
 
 from dotenv import load_dotenv
 
@@ -22,9 +24,17 @@ args = parser.parse_args()
 messages = [types.Content(
     role="user", parts=[types.Part(text=args.user_prompt)])]
 
+available_functions = types.Tool(
+    function_declarations=[schema_get_files_info],
+)
+
 answer = client.models.generate_content(
     model='gemini-2.5-flash',
-    contents=messages
+    contents=messages,
+    config=types.GenerateContentConfig(
+        tools=[available_functions],
+        system_instruction=SYSTEM_PROMPT
+    ),
 )
 
 if answer.usage_metadata is None:
@@ -39,3 +49,6 @@ if args.verbose is True:
     print(f"Response tokens: {answer.usage_metadata.candidates_token_count}")
 
 print(f"Response: {answer.text}")
+if answer.function_calls is not None:
+    for function_call in answer.function_calls:
+        print(f"Calling function: {function_call.name}({function_call.args})")
